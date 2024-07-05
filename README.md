@@ -1,0 +1,1 @@
+This implementation creates a functional Sudoku solver using simulated annealing. It dynamically updates the web page to display the Sudoku board and iteratively attempts to solve it using simulated .
