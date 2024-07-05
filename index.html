@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku with Simulated Annealing</title>
+<style>
+  /* CSS for Sudoku board */
+  table {
+    border-collapse: collapse;
+  }
+  td {
+    width: 30px;
+    height: 30px;
+    text-align: center;
+    border: 1px solid #ccc;
+  }
+  
+</style>
+</head>
+<body>
+  <h1>Sudoku with Simulated Annealing</h1>
+  <table id="sudokuBoard"></table>
+  <br>
+  <button onclick="solveSudoku()">Solve </button>
+
+<script>
+  // Initialize Sudoku board
+  let board = [
+    [0, 0, 0, 2, 6, 0, 7, 0, 1],
+    [6, 8, 0, 0, 7, 0, 0, 9, 0],
+    [1, 9, 0, 0, 0, 4, 5, 0, 0],
+    [8, 2, 0, 1, 0, 0, 0, 4, 0],
+    [0, 0, 4, 6, 0, 2, 9, 0, 0],
+    [0, 5, 0, 0, 0, 3, 0, 2, 8],
+    [0, 0, 9, 3, 0, 0, 0, 7, 4],
+    [0, 4, 0, 0, 5, 0, 0, 3, 6],
+    [7, 0, 3, 0, 1, 8, 0, 0, 0]
+  ];
+  // Function to display Sudoku board
+  function displayBoard() {
+    let table = document.getElementById("sudokuBoard");
+    table.innerHTML = "";
+    for (let i = 0; i < 9; i++) {
+      let row = document.createElement("tr");
+      for (let j = 0; j < 9; j++) {
+        let cell = document.createElement("td");
+        cell.textContent = board[i][j] === 0 ? "" : board[i][j];
+        row.appendChild(cell);
+      }
+      table.appendChild(row);
+    }
+  }
+  // Function to check if a number can be placed in a particular cell
+  function isValid(board, row, col, num) {
+    // Check row and column constraints
+    for (let i = 0; i < 9; i++) {
+      if (board[row][i] === num || board[i][col] === num) {
+        return false;
+      }
+    }
+    // Check 3x3 grid constraints
+    let startRow = Math.floor(row / 3) * 3;
+    let startCol = Math.floor(col / 3) * 3;
+    for (let i = startRow; i < startRow + 3; i++) {
+      for (let j = startCol; j < startCol + 3; j++) {
+        if (board[i][j] === num) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  // Function to generate random initial state (filling empty cells)
+  function generateInitialState() {
+    let initialState = JSON.parse(JSON.stringify(board)); // Deep copy of the board
+    for (let i = 0; i < 9; i++) {
+      for (let j = 0; j < 9; j++) {
+        if (initialState[i][j] === 0) {
+          let possibleValues = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+          shuffleArray(possibleValues);
+          for (let k = 0; k < possibleValues.length; k++) {
+            if (isValid(initialState, i, j, possibleValues[k])) {
+              initialState[i][j] = possibleValues[k];
+              break;
+            }
+          }
+        }
+      }
+    }
+    return initialState;
+  }
+  // Function to shuffle an array (Fisher-Yates shuffle)
+  function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+  // Function to calculate energy (fitness) of the board
+  function calculateEnergy(board) {
+    let energy = 0;
+    // Count conflicts in rows and columns
+    for (let i = 0; i < 9; i++) {
+      let rowSet = new Set();
+      let colSet = new Set();
+      for (let j = 0; j < 9; j++) {
+        // Check rows
+        if (board[i][j] !== 0) {
+          if (rowSet.has(board[i][j])) {
+            energy++;
+          } else {
+            rowSet.add(board[i][j]);
+          }
+        }
+        // Check columns
+        if (board[j][i] !== 0) {
+          if (colSet.has(board[j][i])) {
+            energy++;
+          } else {
+            colSet.add(board[j][i]);
+          }
+        }
+      }
+    }
+    // Check conflicts in 3x3 sub-grids
+    for (let block = 0; block < 9; block++) {
+      let blockSet = new Set();
+      let startRow = Math.floor(block / 3) * 3;
+      let startCol = (block % 3) * 3;
+      for (let i = startRow; i < startRow + 3; i++) {
+        for (let j = startCol; j < startCol + 3; j++) {
+          if (board[i][j] !== 0) {
+            if (blockSet.has(board[i][j])) {
+              energy++;
+            } else {
+              blockSet.add(board[i][j]);
+            }
+          }
+        }
+      }
+    }
+    return energy;
+  }
+  // Function to generate a neighboring state by swapping two cells
+  function generateNeighbor(board) {
+    let neighbor = JSON.parse(JSON.stringify(board)); // Deep copy of the board
+    let row1 = Math.floor(Math.random() * 9);
+    let col1 = Math.floor(Math.random() * 9);
+    let row2 = Math.floor(Math.random() * 9);
+    let col2 = Math.floor(Math.random() * 9);
+    // Swap values
+    let temp = neighbor[row1][col1];
+    neighbor[row1][col1] = neighbor[row2][col2];
+    neighbor[row2][col2] = temp;
+    return neighbor;
+  }
+  // Function to perform simulated annealing to solve Sudoku
+  function solveSudoku() {
+    let currentBoard = generateInitialState();
+    let currentEnergy = calculateEnergy(currentBoard);
+    let temperature = 1.0;
+    let coolingRate = 0.95;
+    while (temperature > 0.1) {
+      let neighbor = generateNeighbor(currentBoard);
+      let neighborEnergy = calculateEnergy(neighbor);
+      let deltaEnergy = neighborEnergy - currentEnergy;
+      if (deltaEnergy < 0 || Math.random() < Math.exp(-deltaEnergy / temperature)) {
+        currentBoard = neighbor;
+        currentEnergy = neighborEnergy;
+      }
+      temperature *= coolingRate;
+    }
+    board = currentBoard;
+    displayBoard();
+  }
+  // Initial display of the Sudoku board
+  displayBoard();
+</script>
+</body>
+</html>
